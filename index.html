@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#2f7df6">
+<meta name="apple-mobile-web-app-title" content="Office Days">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" href="icons/icon-192.png">
+<title>Office Days Tracker</title>
+<style>
+:root{
+  --bg:#f5f6fa;--card:#fff;--text:#1c2030;--muted:#6b7285;--line:#e6e8ef;
+  --office:#2f7df6;--office-bg:#e3eeff;--wfh:#f08a24;--wfh-bg:#ffefdc;--leave:#8a94a8;--leave-bg:#eceef3;
+  box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#12141c;--card:#1b1e29;--text:#eef0f6;--muted:#9097ab;--line:#2a2e3d;
+  --office:#5b9cff;--office-bg:#1d3057;--wfh:#ffa04d;--wfh-bg:#4a3118;--leave:#9aa3b8;--leave-bg:#2a2e3d;}}
+:root[data-theme="dark"]{
+  --bg:#12141c;--card:#1b1e29;--text:#eef0f6;--muted:#9097ab;--line:#2a2e3d;
+  --office:#5b9cff;--office-bg:#1d3057;--wfh:#ffa04d;--wfh-bg:#4a3118;--leave:#9aa3b8;--leave-bg:#2a2e3d;}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+.app{max-width:480px;margin:0 auto;padding:14px 14px 40px}
+h1{font-size:20px;margin:6px 4px 12px;display:flex;justify-content:space-between;align-items:center}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+.card{background:var(--card);border-radius:18px;padding:14px;margin-bottom:14px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.quick{display:flex;gap:10px;align-items:center}
+.quick .lbl{flex:1;font-size:13px;color:var(--muted)}
+.quick .lbl b{display:block;color:var(--text);font-size:15px}
+.pill{padding:10px 14px;border-radius:12px;font-weight:600;font-size:14px}
+.pill.o{background:var(--office);color:#fff}.pill.w{background:var(--wfh);color:#fff}
+.nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.nav .t{font-weight:700;font-size:17px}
+.nav button{width:38px;height:38px;border-radius:50%;background:var(--bg);font-size:18px}
+.grid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+.dow{text-align:center;font-size:11px;color:var(--muted);padding-bottom:2px}
+.day{aspect-ratio:1;border-radius:12px;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:14px;position:relative}
+.day.we{opacity:.55}
+.day.empty{background:none;pointer-events:none}
+.day.o{background:var(--office);color:#fff;font-weight:700;opacity:1}
+.day.w{background:var(--wfh);color:#fff;font-weight:700;opacity:1}
+.day.l{background:var(--leave-bg);color:var(--muted);text-decoration:line-through;opacity:1}
+.day.today{outline:2px solid var(--text);outline-offset:1px}
+.legend{display:flex;gap:14px;justify-content:center;margin-top:12px;font-size:12px;color:var(--muted)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.seg{display:flex;background:var(--bg);border-radius:12px;padding:3px;margin-bottom:12px}
+.seg button{flex:1;padding:8px;border-radius:10px;font-size:14px;font-weight:600;color:var(--muted)}
+.seg button.on{background:var(--card);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.plabel{font-size:13px;color:var(--muted);text-align:center;margin-bottom:6px}
+.big{text-align:center;font-size:56px;font-weight:800;color:var(--office);line-height:1}
+.bigsub{text-align:center;color:var(--muted);font-size:13px;margin:4px 0 14px}
+.bar{height:10px;border-radius:6px;background:var(--bg);overflow:hidden;display:flex}
+.bar span{display:block;height:100%}
+.row{display:flex;gap:8px;margin-top:12px}
+.stat{flex:1;background:var(--bg);border-radius:12px;padding:10px;text-align:center}
+.stat b{display:block;font-size:20px}.stat small{color:var(--muted);font-size:12px}
+.months{display:grid;grid-template-columns:repeat(12,1fr);gap:4px;align-items:end;height:90px;margin-top:16px}
+.months div{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;font-size:10px;color:var(--muted)}
+.months .b{width:100%;background:var(--office);border-radius:4px 4px 0 0;min-height:2px}
+.months em{font-style:normal;font-size:10px;color:var(--text);margin-bottom:2px}
+.basis{display:flex;justify-content:center;gap:6px;margin-top:12px;font-size:12px;color:var(--muted);align-items:center}
+.basis button{padding:4px 10px;border-radius:8px;background:var(--bg);font-size:12px}
+.basis button.on{background:var(--office);color:#fff}
+.sheet-bg{position:fixed;inset:0;background:rgba(0,0,0,.4);display:none;align-items:flex-end;justify-content:center;z-index:10}
+.sheet-bg.show{display:flex}
+.sheet{background:var(--card);width:100%;max-width:480px;border-radius:22px 22px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom,0px))}
+.sheet h2{margin:0 0 14px;font-size:17px;text-align:center}
+.opts{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.opt{padding:16px 8px;border-radius:14px;font-weight:700;font-size:15px}
+.opt small{display:block;font-weight:400;font-size:11px;opacity:.85;margin-top:2px}
+.opt.o{background:var(--office);color:#fff}.opt.w{background:var(--wfh);color:#fff}
+.opt.l{background:var(--leave-bg);color:var(--text)}.opt.c{background:var(--bg);color:var(--muted)}
+.foot{text-align:center;font-size:11px;color:var(--muted);margin-top:6px}
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>🏢 Office Days <button id="themeBtn" aria-label="Toggle theme" style="font-size:18px">🌓</button></h1>
+
+  <div class="card quick" id="quick"></div>
+
+  <div class="card">
+    <div class="nav">
+      <button id="prev" aria-label="Previous month">‹</button>
+      <button class="t" id="title"></button>
+      <button id="next" aria-label="Next month">›</button>
+    </div>
+    <div class="grid" id="dows"></div>
+    <div class="grid" id="cal" style="margin-top:4px"></div>
+    <div class="legend">
+      <span><i style="background:var(--office)"></i>Office</span>
+      <span><i style="background:var(--wfh)"></i>WFH</span>
+      <span><i style="background:var(--leave-bg);border:1px solid var(--line)"></i>Leave/Holiday</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="seg" id="seg">
+      <button data-p="month" class="on">Month</button>
+      <button data-p="quarter">Quarter</button>
+      <button data-p="year">Year</button>
+    </div>
+    <div class="plabel" id="plabel"></div>
+    <div class="big" id="big">0</div>
+    <div class="bigsub">days in office</div>
+    <div class="bar" id="bar"></div>
+    <div class="row" id="row"></div>
+    <div id="monthsWrap"></div>
+    <div class="basis">Quarters &amp; year:
+      <button data-b="0" id="b0">Jan–Dec</button>
+      <button data-b="3" id="b3">Apr–Mar</button>
+    </div>
+  </div>
+  <div class="foot">Tap any day to mark it. Data is saved on this device.</div>
+</div>
+
+<div class="sheet-bg" id="sheetBg">
+  <div class="sheet" id="sheet">
+    <h2 id="sheetTitle"></h2>
+    <div class="opts">
+      <button class="opt o" data-v="o">🏢 Office</button>
+      <button class="opt w" data-v="w">🏠 WFH</button>
+      <button class="opt l" data-v="l">🌴 Leave / Holiday</button>
+      <button class="opt c" data-v="">Clear</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var KEY='office_tracker_v1', SKEY='office_tracker_settings';
+  var data={}, settings={fy:0};
+  try{data=JSON.parse(localStorage.getItem(KEY)||'{}')||{}}catch(e){}
+  try{settings=Object.assign(settings,JSON.parse(localStorage.getItem(SKEY)||'{}'))}catch(e){}
+  function save(){try{localStorage.setItem(KEY,JSON.stringify(data));localStorage.setItem(SKEY,JSON.stringify(settings))}catch(e){}}
+
+  var MN=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var MF=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  var now=new Date(), view={y:now.getFullYear(),m:now.getMonth()}, period='month', sel=null;
+  function pad(n){return (n<10?'0':'')+n}
+  function key(y,m,d){return y+'-'+pad(m+1)+'-'+pad(d)}
+  var todayKey=key(now.getFullYear(),now.getMonth(),now.getDate());
+  function $(id){return document.getElementById(id)}
+
+  // Period range: returns {start,end (inclusive date keys), label}
+  function range(){
+    var y=view.y,m=view.m;
+    if(period==='month') return {s:key(y,m,1),e:key(y,m,31),label:MF[m]+' '+y};
+    var s=+settings.fy;
+    if(period==='quarter'){
+      var q=Math.floor(((m-s+12)%12)/3), sm=(s+q*3)%12, sy=sm>m?y-1:y;
+      var em=sm+2, ey=sy; if(em>11){em-=12;ey++}
+      var qn=q+1, lab=(s===3?'FY Q':'Q')+qn+' · '+MN[sm]+'–'+MN[em]+' '+(sy===ey?sy:sy+'/'+ey);
+      return {s:key(sy,sm,1),e:key(ey,em,31),label:lab};
+    }
+    var ys=(m>=s)?y:y-1;
+    if(s===0) return {s:key(ys,0,1),e:key(ys,11,31),label:'Year '+ys,ys:ys};
+    return {s:key(ys,3,1),e:key(ys+1,2,31),label:'FY '+ys+'–'+String((ys+1)%100).padStart(2,'0')+' (Apr–Mar)',ys:ys};
+  }
+  function count(s,e){
+    var c={o:0,w:0,l:0};
+    for(var k in data){ if(k>=s&&k<=e&&c[data[k]]!==undefined) c[data[k]]++ }
+    return c;
+  }
+
+  function renderQuick(){
+    var v=data[todayKey], txt=v==='o'?'In office':v==='w'?'Working from home':v==='l'?'Leave / holiday':'Not marked yet';
+    var d=now.toLocaleDateString(undefined,{weekday:'long',day:'numeric',month:'short'});
+    $('quick').innerHTML='<div class="lbl"><b>Today · '+d+'</b>'+txt+'</div>'+
+      '<button class="pill o" data-q="o">🏢 Office</button><button class="pill w" data-q="w">🏠 WFH</button>';
+  }
+
+  function renderCal(){
+    $('title').textContent=MF[view.m]+' '+view.y;
+    var dows='Mon Tue Wed Thu Fri Sat Sun'.split(' ');
+    $('dows').innerHTML=dows.map(function(d){return '<div class="dow">'+d+'</div>'}).join('');
+    var first=new Date(view.y,view.m,1), lead=(first.getDay()+6)%7, n=new Date(view.y,view.m+1,0).getDate(), h='';
+    for(var i=0;i<lead;i++) h+='<div class="day empty"></div>';
+    for(var d=1;d<=n;d++){
+      var k=key(view.y,view.m,d), v=data[k]||'', wd=(lead+d-1)%7, cls='day'+(wd>=5?' we':'')+(v?' '+v:'')+(k===todayKey?' today':'');
+      h+='<button class="'+cls+'" data-k="'+k+'">'+d+'</button>';
+    }
+    $('cal').innerHTML=h;
+  }
+
+  function renderStats(){
+    var r=range(), c=count(r.s,r.e), tot=c.o+c.w;
+    $('plabel').textContent=r.label;
+    $('big').textContent=c.o;
+    var po=tot?c.o/tot*100:0, pw=tot?c.w/tot*100:0;
+    $('bar').innerHTML='<span style="width:'+po+'%;background:var(--office)"></span><span style="width:'+pw+'%;background:var(--wfh)"></span>';
+    $('row').innerHTML=
+      '<div class="stat"><b style="color:var(--wfh)">'+c.w+'</b><small>WFH</small></div>'+
+      '<div class="stat"><b>'+c.l+'</b><small>Leave</small></div>'+
+      '<div class="stat"><b>'+(tot?Math.round(po)+'%':'–')+'</b><small>Office share</small></div>';
+    var mw=$('monthsWrap');
+    if(period==='year'){
+      var s=+settings.fy, ys=r.ys, vals=[], mx=1, h='';
+      for(var i=0;i<12;i++){
+        var mm=(s+i)%12, yy=ys+((s+i)>=12?1:0), cc=count(key(yy,mm,1),key(yy,mm,31));
+        vals.push([MN[mm],cc.o]); if(cc.o>mx) mx=cc.o;
+      }
+      vals.forEach(function(x){h+='<div><em>'+(x[1]||'')+'</em><span class="b" style="height:'+(x[1]/mx*62)+'px"></span>'+x[0].charAt(0)+'</div>'});
+      mw.innerHTML='<div class="months">'+h+'</div>';
+    } else mw.innerHTML='';
+    document.querySelectorAll('#seg button').forEach(function(b){b.classList.toggle('on',b.dataset.p===period)});
+    document.querySelectorAll('.basis button').forEach(function(b){b.classList.toggle('on',+b.dataset.b===+settings.fy)});
+  }
+
+  function renderAll(){renderQuick();renderCal();renderStats()}
+
+  function setDay(k,v){ if(v) data[k]=v; else delete data[k]; save(); renderAll(); }
+
+  // events
+  $('prev').onclick=function(){view.m--;if(view.m<0){view.m=11;view.y--}renderCal();renderStats()};
+  $('next').onclick=function(){view.m++;if(view.m>11){view.m=0;view.y++}renderCal();renderStats()};
+  $('title').onclick=function(){view={y:now.getFullYear(),m:now.getMonth()};renderCal();renderStats()};
+  $('seg').onclick=function(e){var p=e.target.dataset.p;if(p){period=p;renderStats()}};
+  document.querySelector('.basis').onclick=function(e){var b=e.target.dataset.b;if(b!==undefined){settings.fy=+b;save();renderStats()}};
+  $('quick').onclick=function(e){var q=e.target.dataset.q;if(q){setDay(todayKey,data[todayKey]===q?'':q)}};
+  $('cal').onclick=function(e){
+    var k=e.target.dataset&&e.target.dataset.k; if(!k) return;
+    sel=k; var p=k.split('-');
+    $('sheetTitle').textContent=new Date(+p[0],+p[1]-1,+p[2]).toLocaleDateString(undefined,{weekday:'long',day:'numeric',month:'long'});
+    $('sheetBg').classList.add('show');
+  };
+  $('sheetBg').onclick=function(e){
+    if(e.target===$('sheetBg')){$('sheetBg').classList.remove('show');return}
+    var b=e.target.closest('.opt'); if(!b) return;
+    setDay(sel,b.dataset.v); $('sheetBg').classList.remove('show');
+  };
+  $('themeBtn').onclick=function(){
+    var r=document.documentElement, dark=matchMedia('(prefers-color-scheme: dark)').matches;
+    var cur=r.getAttribute('data-theme')||(dark?'dark':'light');
+    r.setAttribute('data-theme',cur==='dark'?'light':'dark');
+  };
+  renderAll();
+  if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){})})}
+})();
+</script>
+</body>
+</html>
