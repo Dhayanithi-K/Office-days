@@ -35,6 +35,17 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
 .quick .lbl b{display:block;color:var(--text);font-size:15px}
 .pill{padding:10px 14px;border-radius:12px;font-weight:600;font-size:14px}
 .pill.o{background:var(--office);color:#fff}.pill.w{background:var(--wfh);color:#fff}
+.tog{position:relative;display:flex;width:148px;height:44px;flex:none;border-radius:22px;background:var(--bg);border:1px solid var(--line);padding:0}
+.tog .knob{position:absolute;top:3px;left:3px;width:70px;height:36px;border-radius:18px;transition:transform .2s,background .2s,opacity .2s}
+.tog.w .knob{background:var(--wfh)}.tog.o .knob{background:var(--office);transform:translateX(70px)}.tog.n .knob{opacity:0}
+.tog span{position:relative;z-index:1;flex:1;text-align:center;line-height:42px;font-size:13px;font-weight:700;color:var(--muted)}
+.tog.w .l1,.tog.o .l2{color:#fff}
+.day.w.auto{background:var(--wfh-bg);color:var(--wfh);font-weight:600}
+.setrow{display:flex;gap:12px;align-items:center}
+.setrow div{flex:1;font-size:15px}.setrow small{display:block;color:var(--muted);font-size:12px;margin-top:3px;line-height:1.4}
+.sw{position:relative;width:50px;height:30px;border-radius:15px;background:var(--line);flex:none;transition:background .2s}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;transition:transform .2s}
+.sw.on{background:var(--office)}.sw.on::after{transform:translateX(20px)}
 .nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
 .nav .t{font-weight:700;font-size:17px}
 .nav button{width:38px;height:38px;border-radius:50%;background:var(--bg);font-size:18px}
@@ -96,6 +107,7 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
     <div class="legend">
       <span><i style="background:var(--office)"></i>Office</span>
       <span><i style="background:var(--wfh)"></i>WFH</span>
+      <span><i style="background:var(--wfh-bg);border:1px solid var(--wfh)"></i>Auto WFH</span>
       <span><i style="background:var(--leave-bg);border:1px solid var(--line)"></i>Leave/Holiday</span>
     </div>
   </div>
@@ -117,6 +129,10 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
       <button data-b="3" id="b3">Apr–Mar</button>
     </div>
   </div>
+  <div class="card setrow">
+    <div><b>Auto-mark WFH</b><small>Unmarked Mon–Fri days count as WFH, from the month you started tracking up to today. Mark Office or Leave to override a day.</small></div>
+    <button class="sw" id="autoSw" role="switch" aria-label="Auto-mark WFH"></button>
+  </div>
   <div class="foot">Tap any day to mark it. Data is saved on this device.</div>
 </div>
 
@@ -135,7 +151,7 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
 <script>
 (function(){
   var KEY='office_tracker_v1', SKEY='office_tracker_settings';
-  var data={}, settings={fy:0};
+  var data={}, settings={fy:0,auto:true};
   try{data=JSON.parse(localStorage.getItem(KEY)||'{}')||{}}catch(e){}
   try{settings=Object.assign(settings,JSON.parse(localStorage.getItem(SKEY)||'{}'))}catch(e){}
   function save(){try{localStorage.setItem(KEY,JSON.stringify(data));localStorage.setItem(SKEY,JSON.stringify(settings))}catch(e){}}
@@ -163,27 +179,39 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
     if(s===0) return {s:key(ys,0,1),e:key(ys,11,31),label:'Year '+ys,ys:ys};
     return {s:key(ys,3,1),e:key(ys+1,2,31),label:'FY '+ys+'–'+String((ys+1)%100).padStart(2,'0')+' (Apr–Mar)',ys:ys};
   }
+  function isWeekday(k){var p=k.split('-'),w=new Date(+p[0],+p[1]-1,+p[2]).getDay();return w>0&&w<6}
+  function autoStart(){var mn=null;for(var k in data){if(!mn||k<mn)mn=k}return (mn||todayKey).slice(0,8)+'01'}
+  function eff(k,as){var v=data[k];if(v)return v;if(settings.auto&&k<=todayKey&&k>=as&&isWeekday(k))return 'w';return ''}
   function count(s,e){
-    var c={o:0,w:0,l:0};
-    for(var k in data){ if(k>=s&&k<=e&&c[data[k]]!==undefined) c[data[k]]++ }
+    var c={o:0,w:0,l:0},as=autoStart(),p=s.split('-'),d=new Date(+p[0],+p[1]-1,+p[2]);
+    for(;;){
+      var k=key(d.getFullYear(),d.getMonth(),d.getDate());
+      if(k>e)break;
+      var v=eff(k,as); if(v)c[v]++;
+      d.setDate(d.getDate()+1);
+    }
     return c;
   }
 
   function renderQuick(){
-    var v=data[todayKey], txt=v==='o'?'In office':v==='w'?'Working from home':v==='l'?'Leave / holiday':'Not marked yet';
+    var q=$('quick'), wd=now.getDay();
+    if(wd===0||wd===6){q.style.display='none';return}
+    q.style.display='';
+    var v=eff(todayKey,autoStart());
+    var sub=v==='o'?'In office':v==='w'?(data[todayKey]?'Working from home':'WFH (auto)'):v==='l'?'Leave / holiday':'Not marked yet';
     var d=now.toLocaleDateString(undefined,{weekday:'long',day:'numeric',month:'short'});
-    $('quick').innerHTML='<div class="lbl"><b>Today · '+d+'</b>'+txt+'</div>'+
-      '<button class="pill o" data-q="o">🏢 Office</button><button class="pill w" data-q="w">🏠 WFH</button>';
+    q.innerHTML='<div class="lbl"><b>Today · '+d+'</b>'+sub+'</div>'+
+      '<button class="tog '+(v==='o'?'o':v==='w'?'w':'n')+'" id="tog" aria-label="Toggle today between WFH and Office"><span class="knob"></span><span class="l1">🏠 WFH</span><span class="l2">🏢 Office</span></button>';
   }
 
   function renderCal(){
     $('title').textContent=MF[view.m]+' '+view.y;
     var dows='Mon Tue Wed Thu Fri Sat Sun'.split(' ');
     $('dows').innerHTML=dows.map(function(d){return '<div class="dow">'+d+'</div>'}).join('');
-    var first=new Date(view.y,view.m,1), lead=(first.getDay()+6)%7, n=new Date(view.y,view.m+1,0).getDate(), h='';
+    var as=autoStart(), first=new Date(view.y,view.m,1), lead=(first.getDay()+6)%7, n=new Date(view.y,view.m+1,0).getDate(), h='';
     for(var i=0;i<lead;i++) h+='<div class="day empty"></div>';
     for(var d=1;d<=n;d++){
-      var k=key(view.y,view.m,d), v=data[k]||'', wd=(lead+d-1)%7, cls='day'+(wd>=5?' we':'')+(v?' '+v:'')+(k===todayKey?' today':'');
+      var k=key(view.y,view.m,d), v=eff(k,as), wd=(lead+d-1)%7, cls='day'+(wd>=5?' we':'')+(v?' '+v:'')+(v&&!data[k]?' auto':'')+(k===todayKey?' today':'');
       h+='<button class="'+cls+'" data-k="'+k+'">'+d+'</button>';
     }
     $('cal').innerHTML=h;
@@ -213,7 +241,7 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
     document.querySelectorAll('.basis button').forEach(function(b){b.classList.toggle('on',+b.dataset.b===+settings.fy)});
   }
 
-  function renderAll(){renderQuick();renderCal();renderStats()}
+  function renderAll(){renderQuick();renderCal();renderStats();var sw=$('autoSw');sw.classList.toggle('on',!!settings.auto);sw.setAttribute('aria-checked',!!settings.auto)}
 
   function setDay(k,v){ if(v) data[k]=v; else delete data[k]; save(); renderAll(); }
 
@@ -223,7 +251,9 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
   $('title').onclick=function(){view={y:now.getFullYear(),m:now.getMonth()};renderCal();renderStats()};
   $('seg').onclick=function(e){var p=e.target.dataset.p;if(p){period=p;renderStats()}};
   document.querySelector('.basis').onclick=function(e){var b=e.target.dataset.b;if(b!==undefined){settings.fy=+b;save();renderStats()}};
-  $('quick').onclick=function(e){var q=e.target.dataset.q;if(q){setDay(todayKey,data[todayKey]===q?'':q)}};
+  $('quick').onclick=function(e){if(e.target.closest('#tog')){setDay(todayKey,eff(todayKey,autoStart())==='o'?'w':'o')}};
+  $('autoSw').onclick=function(){settings.auto=!settings.auto;save();renderAll()};
+  document.addEventListener('visibilitychange',function(){if(!document.hidden){now=new Date();todayKey=key(now.getFullYear(),now.getMonth(),now.getDate());renderAll()}});
   $('cal').onclick=function(e){
     var k=e.target.dataset&&e.target.dataset.k; if(!k) return;
     sel=k; var p=k.split('-');
