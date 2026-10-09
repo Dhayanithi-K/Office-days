@@ -46,6 +46,10 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
 .sw{position:relative;width:50px;height:30px;border-radius:15px;background:var(--line);flex:none;transition:background .2s}
 .sw::after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;transition:transform .2s}
 .sw.on{background:var(--office)}.sw.on::after{transform:translateX(20px)}
+.expbtn{padding:10px 14px;border-radius:12px;background:var(--bg);border:1px solid var(--line);font-weight:700;font-size:14px;flex:none}
+.bk{display:flex;gap:10px;margin-top:12px}
+.bkb{flex:1;padding:12px 8px;border-radius:12px;background:var(--bg);font-weight:600;font-size:14px;border:1px solid var(--line)}
+.bkmsg{display:block;min-height:16px;margin-top:10px;font-size:12px;color:var(--muted);text-align:center}
 .nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
 .nav .t{font-weight:700;font-size:17px}
 .nav button{width:38px;height:38px;border-radius:50%;background:var(--bg);font-size:18px}
@@ -132,6 +136,20 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
   <div class="card setrow">
     <div><b>Auto-mark WFH</b><small>Unmarked Mon–Fri days count as WFH, from the month you started tracking up to today. Mark Office or Leave to override a day.</small></div>
     <button class="sw" id="autoSw" role="switch" aria-label="Auto-mark WFH"></button>
+  </div>
+  <div class="card setrow">
+    <div><b>Export data</b><small>Download all your days as a simple CSV file (Date, Day, Status, Entry).</small></div>
+    <button class="expbtn" id="expBtn">⬇ CSV</button>
+  </div>
+  <div class="card">
+    <div style="font-size:15px"><b>Backup &amp; transfer</b></div>
+    <div style="font-size:12px;color:var(--muted);margin-top:3px;line-height:1.4">Export your marked days as a CSV, then import it on another device. Importing merges with existing data.</div>
+    <div class="bk">
+      <button class="bkb" id="exp">⬇ Export CSV</button>
+      <button class="bkb" id="imp">⬆ Import CSV</button>
+    </div>
+    <input type="file" id="impFile" accept=".csv,text/csv,text/plain" hidden>
+    <small class="bkmsg" id="bkMsg"></small>
   </div>
   <div class="foot">Tap any day to mark it. Data is saved on this device.</div>
 </div>
@@ -252,6 +270,34 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
   $('seg').onclick=function(e){var p=e.target.dataset.p;if(p){period=p;renderStats()}};
   document.querySelector('.basis').onclick=function(e){var b=e.target.dataset.b;if(b!==undefined){settings.fy=+b;save();renderStats()}};
   $('quick').onclick=function(e){if(e.target.closest('#tog')){setDay(todayKey,eff(todayKey,autoStart())==='o'?'w':'o')}};
+  function exportCsv(){
+    var as=autoStart(), p=as.split('-'), d=new Date(+p[0],+p[1]-1,1), end=todayKey, k;
+    for(k in data){if(k>end)end=k}
+    var N=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'], L={o:'Office',w:'WFH',l:'Leave'}, rows=['Date,Day,Status,Entry'];
+    for(;;){
+      k=key(d.getFullYear(),d.getMonth(),d.getDate());
+      if(k>end)break;
+      var v=eff(k,as);
+      if(v)rows.push(k+','+N[d.getDay()]+','+L[v]+','+(data[k]?'Marked':'Auto'));
+      d.setDate(d.getDate()+1);
+    }
+    if(rows.length<2){alert('Nothing to export yet.');return}
+    var name='office-days-'+todayKey+'.csv', text=rows.join('\r\n')+'\r\n';
+    function dl(){
+      var url=URL.createObjectURL(new Blob([text],{type:'text/csv;charset=utf-8'})), a=document.createElement('a');
+      a.href=url;a.download=name;document.body.appendChild(a);a.click();document.body.removeChild(a);
+      setTimeout(function(){URL.revokeObjectURL(url)},2000);
+    }
+    try{
+      var f=new File([text],name,{type:'text/csv'});
+      if(navigator.canShare&&navigator.canShare({files:[f]})&&matchMedia('(pointer:coarse)').matches){
+        navigator.share({files:[f],title:'Office days'}).catch(function(err){if(!err||err.name!=='AbortError')dl()});
+        return;
+      }
+    }catch(e){}
+    dl();
+  }
+  $('expBtn').onclick=exportCsv;
   $('autoSw').onclick=function(){settings.auto=!settings.auto;save();renderAll()};
   document.addEventListener('visibilitychange',function(){if(!document.hidden){now=new Date();todayKey=key(now.getFullYear(),now.getMonth(),now.getDate());renderAll()}});
   $('cal').onclick=function(e){
@@ -270,6 +316,59 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
     var cur=r.getAttribute('data-theme')||(dark?'dark':'light');
     r.setAttribute('data-theme',cur==='dark'?'light':'dark');
   };
+  // ---- CSV export / import ----
+  var STAT={o:'office',w:'wfh',l:'leave'};
+  var REV={o:'o',office:'o',w:'w',wfh:'w',home:'w',l:'l',leave:'l',holiday:'l'};
+  function msg(t){$('bkMsg').textContent=t}
+  function exportCsv(){
+    var keys=Object.keys(data).filter(function(k){return STAT[data[k]]}).sort();
+    if(!keys.length){msg('Nothing to export yet. Mark some days first.');return}
+    var csv='date,status\n'+keys.map(function(k){return k+','+STAT[data[k]]}).join('\n')+'\n';
+    var name='office-days-'+todayKey+'.csv', blob=new Blob([csv],{type:'text/csv'});
+    function dl(){
+      var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name;
+      document.body.appendChild(a); a.click();
+      setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},1000);
+      msg('Exported '+keys.length+' days to '+name);
+    }
+    try{
+      var f=new File([blob],name,{type:'text/csv'});
+      if(navigator.canShare&&navigator.canShare({files:[f]})){
+        navigator.share({files:[f],title:'Office days'})
+          .then(function(){msg('Exported '+keys.length+' days')})
+          .catch(function(e){if(!e||e.name!=='AbortError')dl()});
+        return;
+      }
+    }catch(e){}
+    dl();
+  }
+  function importCsv(text){
+    text=text.replace(/^\uFEFF/,'');
+    var add={},n=0,bad=0;
+    text.split(/\r?\n/).forEach(function(line){
+      line=line.trim(); if(!line) return;
+      var p=line.split(/[,;\t]/).map(function(x){return x.replace(/^"|"$/g,'').trim()});
+      var m=/^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(p[0]);
+      if(!m){ if(!/^date$/i.test(p[0])) bad++; return }
+      var y=+m[1],mo=+m[2]-1,d=+m[3],dt=new Date(y,mo,d),st=REV[(p[1]||'').toLowerCase()];
+      if(dt.getMonth()!==mo||dt.getDate()!==d||!st){bad++;return}
+      add[key(y,mo,d)]=st; n++;
+    });
+    if(!n){msg('No valid rows found. Expected lines like 2026-10-09,office');return}
+    for(var k in add) data[k]=add[k];
+    save(); renderAll();
+    msg('Imported '+n+' days'+(bad?' ('+bad+' rows skipped)':''));
+  }
+  $('exp').onclick=exportCsv;
+  $('imp').onclick=function(){$('impFile').click()};
+  $('impFile').onchange=function(e){
+    var f=e.target.files&&e.target.files[0]; if(!f) return;
+    var r=new FileReader();
+    r.onload=function(){importCsv(String(r.result))};
+    r.onerror=function(){msg('Could not read that file')};
+    r.readAsText(f); e.target.value='';
+  };
+
   renderAll();
   if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){})})}
 })();
